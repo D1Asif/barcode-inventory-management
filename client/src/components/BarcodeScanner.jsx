@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext.jsx';
+import toast from 'react-hot-toast';
 
 const BarcodeScanner = () => {
   const scannerRef = useRef(null);
@@ -131,7 +132,8 @@ const BarcodeScanner = () => {
       }
     } catch (error) {
       console.error('Error fetching product:', error);
-      setError(error.response?.data?.error || 'Failed to fetch product details. Please try again.');
+      const errorMessage = error.response?.data?.error || 'Failed to fetch product details. Please try again.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -150,6 +152,8 @@ const BarcodeScanner = () => {
         description: productData.description
       };
 
+      console.log('Creating product with payload:', productPayload);
+
       const response = await axios.post(
         'https://barcode-inventory-management.onrender.com/api/products',
         productPayload,
@@ -161,12 +165,18 @@ const BarcodeScanner = () => {
         }
       );
 
-      if (response.data.success) {
+      console.log('Product creation response:', response.data);
+
+      // Check if the response indicates success (status 201 for created)
+      if (response.status === 201) {
         // Reset everything after successful creation
         setScannedCode(null);
         setProductData(null);
         setError('');
-        alert('Product created successfully in your inventory!');
+        console.log('Showing success toast...');
+        toast.success('Product created successfully in your inventory!');
+      } else {
+        console.log('Response did not indicate success:', response.data);
       }
     } catch (error) {
       console.error('Error creating product:', error);

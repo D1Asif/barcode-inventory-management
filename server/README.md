@@ -18,6 +18,7 @@ A Node.js/Express.js backend for a barcode-driven inventory management system wi
 - **Database**: MongoDB with Mongoose ODM
 - **Authentication**: JWT (jsonwebtoken) + bcryptjs
 - **CORS**: Enabled for frontend integration
+- **Modules**: ES6 Modules (import/export)
 
 ## Project Structure
 
@@ -26,6 +27,8 @@ server/
 ├── app.js                 # Main application file
 ├── package.json           # Dependencies and scripts
 ├── env.example           # Environment variables template
+├── vercel.json           # Vercel deployment configuration
+├── .vercelignore         # Files to exclude from Vercel deployment
 ├── README.md             # Comprehensive documentation
 ├── test-api.js           # API testing script
 ├── models/               # Database models
@@ -88,7 +91,7 @@ The application follows a **modular MVC pattern** with clear separation of conce
 - MongoDB (local or cloud instance)
 - npm or yarn package manager
 
-### Installation
+### Local Development
 
 1. **Clone the repository and navigate to server directory**
    ```bash
@@ -122,6 +125,92 @@ The application follows a **modular MVC pattern** with clear separation of conce
    ```
 
 The server will start on port 5000 (or the port specified in your .env file).
+
+## Deployment
+
+### Vercel Deployment
+
+This backend is configured for easy deployment on Vercel with the included `vercel.json` configuration.
+
+#### Prerequisites
+- Vercel account
+- MongoDB Atlas or other cloud MongoDB instance
+- Vercel CLI (optional)
+
+#### Deployment Steps
+
+1. **Prepare Environment Variables**
+   ```bash
+   # Set these in Vercel dashboard or via CLI
+   MONGODB_URI=your-mongodb-atlas-connection-string
+   JWT_SECRET=your-super-secret-jwt-key
+   NODE_ENV=production
+   ```
+
+2. **Deploy via Vercel Dashboard**
+   - Connect your GitHub repository to Vercel
+   - Set the root directory to `server`
+   - Configure environment variables in the Vercel dashboard
+   - Deploy
+
+3. **Deploy via Vercel CLI**
+   ```bash
+   # Install Vercel CLI
+   npm i -g vercel
+   
+   # Navigate to server directory
+   cd server
+   
+   # Deploy
+   vercel
+   
+   # Follow the prompts and set environment variables
+   ```
+
+4. **Environment Variables in Vercel**
+   - Go to your project dashboard in Vercel
+   - Navigate to Settings → Environment Variables
+   - Add the following variables:
+     - `MONGODB_URI`: Your MongoDB connection string
+     - `JWT_SECRET`: Your JWT secret key
+     - `NODE_ENV`: `production`
+
+#### Vercel Configuration
+
+The `vercel.json` file includes:
+- **Build Configuration**: Uses `@vercel/node` for Node.js deployment
+- **Routing**: Routes all API calls to the main app.js file
+- **Function Settings**: Sets max duration to 30 seconds for serverless functions
+- **Environment**: Sets NODE_ENV to production
+
+#### Post-Deployment
+
+After deployment, your API will be available at:
+```
+https://your-project-name.vercel.app/api/
+```
+
+Example endpoints:
+- `https://your-project-name.vercel.app/api/auth/register`
+- `https://your-project-name.vercel.app/api/products`
+- `https://your-project-name.vercel.app/health`
+
+### Other Deployment Options
+
+#### Railway
+- Similar to Vercel, supports Node.js applications
+- Easy environment variable configuration
+- Automatic deployments from GitHub
+
+#### Heroku
+- Traditional platform-as-a-service
+- Requires Procfile configuration
+- Good for long-running processes
+
+#### DigitalOcean App Platform
+- Container-based deployment
+- Good for scaling applications
+- Built-in monitoring
 
 ## API Documentation
 

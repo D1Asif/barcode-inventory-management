@@ -1,0 +1,19 @@
+# Ignore environment files
+client/.env
+server/.env
+
+# Node modules
+client/node_modules/
+server/node_modules/
+
+# Build artifacts (optional)
+client/dist/
+server/dist/
+client/build/
+server/build/
+
+# Log files
+*.log
+
+# OS/System files
+.DS_Store

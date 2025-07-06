@@ -6,6 +6,9 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  DragOverlay,
+  useDraggable,
+  useDroppable,
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -71,28 +74,18 @@ const SortableProductItem = ({ product, category }) => {
   );
 };
 
-// Category Column Component
-const CategoryColumn = ({ category, products, onProductMove }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: category });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
+// Category Column Component (Drop Zone)
+const CategoryColumn = ({ category, products }) => {
+  const { setNodeRef, isOver } = useDroppable({
+    id: category,
+  });
 
   return (
     <div
       ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      className="bg-gray-50 rounded-lg p-4 min-h-[500px] flex flex-col"
+      className={`bg-gray-50 rounded-lg p-4 min-h-[500px] flex flex-col transition-colors duration-200 ${
+        isOver ? 'bg-blue-50 border-2 border-blue-300' : ''
+      }`}
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 capitalize">
@@ -123,10 +116,15 @@ const KanbanBoard = () => {
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [addingCategory, setAddingCategory] = useState(false);
+  const [activeProduct, setActiveProduct] = useState(null);
   const { token } = useAuth();
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -254,9 +252,18 @@ const KanbanBoard = () => {
     return acc;
   }, {});
 
+  // Handle drag start
+  const handleDragStart = (event) => {
+    const { active } = event;
+    const draggedProduct = products.find(p => p._id === active.id);
+    setActiveProduct(draggedProduct);
+  };
+
   // Handle drag end
   const handleDragEnd = async (event) => {
     const { active, over } = event;
+    
+    setActiveProduct(null);
 
     if (!over || active.id === over.id) {
       return;
@@ -274,6 +281,16 @@ const KanbanBoard = () => {
       return;
     }
 
+    // Optimistically update the UI immediately
+    const originalProducts = [...products];
+    setProducts(prevProducts =>
+      prevProducts.map(product =>
+        product._id === active.id
+          ? { ...product, category: targetCategory }
+          : product
+      )
+    );
+
     try {
       // Update product category in backend
       const response = await axios.patch(
@@ -288,19 +305,16 @@ const KanbanBoard = () => {
       );
 
       if (response.status === 200) {
-        // Update local state
-        setProducts(prevProducts =>
-          prevProducts.map(product =>
-            product._id === active.id
-              ? { ...product, category: targetCategory }
-              : product
-          )
-        );
-
         toast.success(`Product moved to ${targetCategory}`);
+      } else {
+        // Revert the optimistic update if the response is not successful
+        setProducts(originalProducts);
+        toast.error('Failed to update product category');
       }
     } catch (error) {
       console.error('Error updating product category:', error);
+      // Revert the optimistic update on error
+      setProducts(originalProducts);
       toast.error('Failed to update product category');
     }
   };
@@ -367,6 +381,7 @@ const KanbanBoard = () => {
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -380,6 +395,31 @@ const KanbanBoard = () => {
             />
           ))}
         </div>
+        
+        <DragOverlay>
+          {activeProduct ? (
+            <div className="bg-white p-4 rounded-lg shadow-lg border border-gray-200 opacity-90 transform rotate-3">
+              <div className="flex items-start justify-between">
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-semibold text-gray-900 truncate">
+                    {activeProduct.description}
+                  </h4>
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-gray-500">
+                      <span className="font-medium">Material:</span> {activeProduct.material}
+                    </p>
+                    <p className="text-xs text-gray-500 font-mono">
+                      <span className="font-medium">Barcode:</span> {activeProduct.barcode}
+                    </p>
+                  </div>
+                </div>
+                <div className="ml-2 flex-shrink-0">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </DragOverlay>
       </DndContext>
 
       {products.length === 0 && (

@@ -7,6 +7,7 @@ import authRoutes from './routes/auth.js';
 import productRoutes from './routes/products.js';
 import categoryRoutes from './routes/categories.js';
 import analyticsRoutes from './routes/analytics.js';
+import proxyRoutes from './routes/proxy.js';
 import { seedCategories } from './config/seeder.js';
 
 dotenv.config();
@@ -35,6 +36,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/proxy', proxyRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

@@ -1,13 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
+import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext.jsx';
 
 const BarcodeScanner = () => {
   const scannerRef = useRef(null);
   const [scannedCode, setScannedCode] = useState(null);
+  const [productData, setProductData] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isScanning, setIsScanning] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const [manualBarcode, setManualBarcode] = useState('');
   const [showManualInput, setShowManualInput] = useState(false);
   const [quaggaInitialized, setQuaggaInitialized] = useState(false);
+  const { token } = useAuth();
 
   // Safe Quagga cleanup function
   const safeQuaggaStop = () => {
@@ -103,6 +109,73 @@ const BarcodeScanner = () => {
     }
   };
 
+  const fetchProductDetails = async () => {
+    if (!scannedCode) return;
+    
+    setLoading(true);
+    setError('');
+    setProductData(null);
+    
+    try {
+      const response = await axios.get(`https://barcode-inventory-management.onrender.com/api/proxy/product/${scannedCode}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.data.status && response.data.product) {
+        setProductData(response.data.product);
+      } else {
+        setError('Product not found in external database');
+      }
+    } catch (error) {
+      console.error('Error fetching product:', error);
+      setError(error.response?.data?.error || 'Failed to fetch product details. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateProduct = async () => {
+    if (!productData) return;
+    
+    setIsCreating(true);
+    setError('');
+    
+    try {
+      const productPayload = {
+        material: productData.material,
+        barcode: productData.barcode,
+        description: productData.description
+      };
+
+      const response = await axios.post(
+        'https://barcode-inventory-management.onrender.com/api/products',
+        productPayload,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.data.success) {
+        // Reset everything after successful creation
+        setScannedCode(null);
+        setProductData(null);
+        setError('');
+        alert('Product created successfully in your inventory!');
+      }
+    } catch (error) {
+      console.error('Error creating product:', error);
+      setError(error.response?.data?.error || 'Failed to create product in inventory');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const handleManualSubmit = (e) => {
     e.preventDefault();
     if (manualBarcode.trim()) {
@@ -115,12 +188,14 @@ const BarcodeScanner = () => {
   const handleStartScan = () => {
     setIsScanning(true);
     setScannedCode(null);
+    setProductData(null);
     setError('');
     setShowManualInput(false);
   };
 
   const handleRescan = () => {
     setScannedCode(null);
+    setProductData(null);
     setError('');
     setIsScanning(true);
   };
@@ -128,6 +203,7 @@ const BarcodeScanner = () => {
   const handleCancel = () => {
     setIsScanning(false);
     setScannedCode(null);
+    setProductData(null);
     setError('');
     setShowManualInput(false);
     safeQuaggaStop();
@@ -246,7 +322,7 @@ const BarcodeScanner = () => {
           </div>
         )}
 
-        {scannedCode && (
+        {scannedCode && !loading && !productData && (
           <div className="space-y-4">
             <div className="bg-green-50 p-6 rounded-lg border border-green-200 text-center">
               <div className="text-4xl mb-4">✅</div>
@@ -263,10 +339,96 @@ const BarcodeScanner = () => {
               </p>
             </div>
 
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <h3 className="text-lg font-semibold text-blue-900 mb-2">
+                Next Steps
+              </h3>
+              <p className="text-blue-700 mb-4">
+                Would you like to fetch product details from the external database?
+              </p>
+              <button
+                onClick={fetchProductDetails}
+                className="btn-primary w-full"
+              >
+                🔍 See Product Details
+              </button>
+            </div>
+
             <div className="flex gap-3">
               <button
                 onClick={handleRescan}
-                className="btn-primary flex-1"
+                className="btn-secondary flex-1"
+              >
+                📱 Scan Another
+              </button>
+              <button
+                onClick={handleCancel}
+                className="btn-secondary flex-1"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        )}
+
+        {loading && (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Fetching product details...</p>
+          </div>
+        )}
+
+        {productData && (
+          <div className="space-y-4">
+            <div className="bg-green-50 p-6 rounded-lg border border-green-200 text-center">
+              <div className="text-4xl mb-4">✅</div>
+              <h3 className="text-lg font-semibold text-green-900 mb-2">
+                Barcode Scanned Successfully!
+              </h3>
+              <p className="text-green-700 font-mono text-2xl font-bold">
+                {scannedCode}
+              </p>
+              <p className="text-green-600 text-sm mt-2">
+                Barcode type: {scannedCode.length === 13 ? 'EAN-13' : 
+                               scannedCode.length === 8 ? 'EAN-8' : 
+                               scannedCode.length === 12 ? 'UPC' : 'Unknown'}
+              </p>
+            </div>
+
+            <div className="bg-white p-4 rounded-lg border border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                Product Information
+              </h3>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Material ID:</span>
+                  <span className="font-medium">{productData.material}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Barcode:</span>
+                  <span className="font-medium font-mono">{productData.barcode}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Description:</span>
+                  <span className="font-medium">{productData.description}</span>
+                </div>
+              </div>
+              
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <button
+                  onClick={handleCreateProduct}
+                  disabled={isCreating}
+                  className="btn-primary w-full"
+                >
+                  {isCreating ? 'Creating Product...' : '➕ Add to Inventory'}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleRescan}
+                className="btn-secondary flex-1"
               >
                 📱 Scan Another
               </button>
